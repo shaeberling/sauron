@@ -1,5 +1,5 @@
 # Sauron
-Sauron is a Foscam compatible webcam daemon
+Sauron is a Foscam compatible webcam daemon, written in Kotlin.
 
 # Features
  - Multi-platform: Written in Kotlin, and thus compatible with any JVM platform
@@ -14,13 +14,13 @@ I'll provide way to create a Debian package at some point, but for now, here are
 ## Build
 First, build runnable JAR file:
 ```
-// TODO: Will add once code has moved here.
+./gradlew sauron
 ```
 
-The result is a file like `sauron-0.0.1.jar`. This file can be copied anywhere and run:
+The result is a file like `sauron-0.1.jar`. This file can be copied anywhere and run:
 
 ```
-java -jar sauron-0.0.1.jar
+java -jar sauron-0.1.jar
 ```
 
 ## Installation (Linux/Systemd)
@@ -32,11 +32,11 @@ First, create a directory to put sauron in, preferable under the main `pi` user'
 mkdir -p /home/pi/sauron
 ```
 
-Then copy the `sauron-0.0.1.jar` into it.
+Then copy the `sauron-0.1.jar` into it.
 
 To support easy updates later, generate a symlink:
 ```
-ln -s /home/pi/sauron/sauron-0.0.1.jar /home/pi/sauron/sauron.jar
+ln -s /home/pi/sauron/sauron-0.1.jar /home/pi/sauron/sauron.jar
 ```
 
 With this in place, create the following systemd configuration as `/lib/systemd/system/sauron.service`:

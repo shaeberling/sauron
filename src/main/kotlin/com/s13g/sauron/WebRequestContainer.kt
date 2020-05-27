@@ -24,7 +24,7 @@ internal class WebRequestContainer(
   private val log = FluentLogger.forEnclosingClass()
 
   /** Used to serve containers.  */
-  private val containerServer: ContainerServer = serverCreator(port, NUM_SERVER_THREADS)
+  private val containerServer = serverCreator(port, NUM_SERVER_THREADS)
 
   /** The main HTML site.  */
   private var indexPageBytes: ByteArray = ByteArray(0)

@@ -10,7 +10,6 @@ import java.io.IOException
 import java.time.LocalDateTime
 import java.util.LinkedList
 
-
 private const val FILE_EXTENSION = ".jpg"
 
 

@@ -1,5 +1,6 @@
 package com.s13g.sauron.file
 
+import java.io.IOException
 import java.nio.file.attribute.BasicFileAttributes
 
 
@@ -16,5 +17,6 @@ interface FileWrapper {
   fun deleteIfExists(): Boolean
 
   /** Read basic attributes of the file. */
+  @Throws(IOException::class)
   fun readBasicAttributes(): BasicFileAttributes?
 }

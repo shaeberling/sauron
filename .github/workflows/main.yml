@@ -1,4 +1,4 @@
-name: Sauron Java Tests
+name: Sauron Tests
 
 on: [push]
 

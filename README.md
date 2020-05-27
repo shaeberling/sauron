@@ -1,6 +1,8 @@
 # Sauron
 Sauron is a Foscam compatible webcam daemon, written in Kotlin.
 
+![](https://github.com/shaeberling/sauron/workflows/Sauron%20Tests/badge.svg)
+
 # Features
  - Multi-platform: Written in Kotlin, and thus compatible with any JVM platform
  - Flexible inputs: Can run any command to take the next frame.

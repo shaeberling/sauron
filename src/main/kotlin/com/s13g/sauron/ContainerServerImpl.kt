@@ -18,15 +18,15 @@ val defaultContainerServerCreator: ContainerServerCreator
   get() = { port: Int, numThreads: Int -> ContainerServerImpl(port, numThreads) }
 
 /** Starts a server to start serving the given container. */
-class ContainerServerImpl(private val mPort: Int, private val mNumThreads: Int) : ContainerServer {
+class ContainerServerImpl(private val port: Int, private val numThreads: Int) : ContainerServer {
   private val log = FluentLogger.forEnclosingClass()
 
   override fun startServing(container: Container): Boolean {
     try {
-      val processor = ContainerSocketProcessor(container, mNumThreads)
+      val processor = ContainerSocketProcessor(container, numThreads)
       val connection: Connection =
         SocketConnection(processor)
-      val address: SocketAddress = InetSocketAddress(mPort)
+      val address: SocketAddress = InetSocketAddress(port)
       connection.connect(address)
       log.atInfo().log("Listening at %s ", address.toString())
     } catch (e: IOException) {

@@ -1,21 +1,17 @@
 package com.s13g.sauron
 
 
-import com.google.common.collect.ImmutableList
 import com.google.common.flogger.FluentLogger
-import com.google.common.util.concurrent.Futures
-import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.ListeningExecutorService
 import com.google.common.util.concurrent.MoreExecutors
 import org.simpleframework.http.Response
 import org.simpleframework.http.Status
 import java.io.IOException
 import java.io.OutputStream
-import java.util.concurrent.ExecutionException
 import java.util.concurrent.Executor
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.atomic.AtomicInteger
 import javax.annotation.concurrent.GuardedBy
 
 
@@ -33,10 +29,12 @@ class ImageServer {
   @GuardedBy("mBytesLock")
   private var currentImageBytes: ByteArray
 
+  @GuardedBy("mBytesLock")
+  private var lastModified: Long
+
   /** Locks access on the mCurrentImageBytes object  */
   private val bytesLock: Any
-  private val mJpegQueue = LinkedBlockingQueue<ByteArray>(1)
-  private val activeMjpegResponses: MutableSet<Response> = HashSet()
+  private val numActiveConnections: AtomicInteger
 
   /**
    * Creates a new image server.
@@ -45,19 +43,21 @@ class ImageServer {
    */
   constructor(fileReadExecutor: Executor) {
     this.fileReadExecutor = fileReadExecutor
-    serveMjpegExecutor = MoreExecutors.listeningDecorator(Executors.newCachedThreadPool())
-    currentImageBytes = ByteArray(0)
-    bytesLock = Any()
-    startServing()
+    this.serveMjpegExecutor = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(200))
+    this.currentImageBytes = ByteArray(0)
+    this.lastModified = 0L
+    this.bytesLock = Any()
+    this.numActiveConnections = AtomicInteger(0)
   }
 
   /** For testing.  */
   internal constructor(fileReadExecutor: Executor, serveMjpegExecutor: ExecutorService) {
     this.fileReadExecutor = fileReadExecutor
     this.serveMjpegExecutor = MoreExecutors.listeningDecorator(serveMjpegExecutor)
-    currentImageBytes = ByteArray(0)
-    bytesLock = Any()
-    startServing()
+    this.currentImageBytes = ByteArray(0)
+    this.lastModified = 0L
+    this.bytesLock = Any()
+    this.numActiveConnections = AtomicInteger(0)
   }
 
   /**
@@ -72,10 +72,7 @@ class ImageServer {
       if (currentImage != null) {
         synchronized(bytesLock) {
           currentImageBytes = currentImage
-          log.atInfo().log("Offering new mJPEG to mJPEG queue.")
-          if (!mJpegQueue.offer(currentImageBytes)) {
-            log.atWarning().log("Cannot add new image to mJPEG queue.")
-          }
+          lastModified = System.currentTimeMillis()
         }
       } else {
         log.atSevere().log("Could not load current image. Not updating.")
@@ -85,79 +82,69 @@ class ImageServer {
 
   /** Serves the current image file to the given response.  */
   fun serveCurrentFile(response: Response) {
-    synchronized(bytesLock) { serveData("image/jpeg", currentImageBytes, response) }
-  }
-
-  private fun startServing() {
-    // One master thread that loops until interrupted.
-    Executors.newSingleThreadExecutor()
-      .execute {
-        while (true) {
-          try {
-            // Get the data to serve to all outstanding requests.
-            val jpegData = mJpegQueue.take()
-            val servingFutures: MutableSet<ListenableFuture<*>> = HashSet()
-            for (response in ImmutableList.copyOf(activeMjpegResponses)) {
-
-              // Fires up a thread per active response being served.
-              val future = serveMjpegExecutor.submit { serveMotionJpeg(response, jpegData) }
-              servingFutures.add(future)
-            }
-            // Wait for all serves to complete.
-            // Downside: The slowest connection will pause serving for everybody else.
-            // Fixme: Put the serves into a queue, with copied data.
-            Futures.allAsList(servingFutures).get()
-          } catch (ex: InterruptedException) {
-            log.atInfo().log("Got interrupted while retrieving from mJpeg queue.")
-            break
-          } catch (ex: ExecutionException) {
-            log.atInfo().log("Got interrupted while retrieving from mJpeg queue.")
-            break
-          }
-        }
-      }
+    val copyForRequest: ByteArray
+    synchronized(bytesLock) {
+      copyForRequest = currentImageBytes.copyOf()
+    }
+    serveData("image/jpeg", copyForRequest, response)
   }
 
   fun startServingMjpegTo(response: Response) {
     response.setContentType("multipart/x-mixed-replace;boundary=ipcamera")
     response.status = Status.OK
 
-    // Immediately serve the most current frame.
-    synchronized(bytesLock) {
-      try {
-        serveMotionJpegFrame(currentImageBytes, response.outputStream)
-      } catch (ignore: IOException) {
+    // Enlist this response so it can get follow-up requests. Each response gets its own thread.
+    serveMjpegExecutor.execute {
+      log.atInfo().log("Added active mJPEG response. Total now ${numActiveConnections.incrementAndGet()}.")
+      var lastServedTimestamp = 0L
+
+      // Serve one frame right away. For some reason the very first frame is not being displayed. This way, a new
+      // request will immediately display a result.
+      serveMotionJpegFrame(response.outputStream)
+
+      // Until the connection is either closed or a new frame hasn't arrived in a long time (indicating an internal
+      // error), serve the new frame.
+      while (waitForNewFrame(lastServedTimestamp)) {
+        try {
+          lastServedTimestamp = serveMotionJpegFrame(response.outputStream)
+          log.atInfo().log("Served an mJPEG frame.")
+        } catch (ex: IOException) {
+          break
+        }
       }
-    }
-    activeMjpegResponses.add(response)
-    log.atInfo().log("Added active mJPEG response. Total now ${activeMjpegResponses.size}.")
-  }
-
-  private fun serveMotionJpeg(response: Response, jpegData: ByteArray) {
-    try {
-      val outputStream = response.outputStream
-
-      // When we get an IOException trying to write out data, at which point we end
-      // serving data as the request has likely been cancelled, we remove the response so it is
-      // no longer being served.
-      serveMotionJpegFrame(jpegData, outputStream)
-    } catch (ex: IOException) {
-      activeMjpegResponses.remove(response)
-      log.atInfo()
-        .log("Removing inactive response. Total now ${activeMjpegResponses.size}.")
       try {
         response.close()
       } catch (ignore: IOException) {
       }
+      log.atInfo().log("Connection closed. Total active now ${numActiveConnections.decrementAndGet()}.")
     }
   }
 
-  private fun serveMotionJpegFrame(jpegData: ByteArray, outputStream: OutputStream) {
+  /** Wait for an image newer than this timestamp. If none can be found after certain time, give up and return false. */
+  private fun waitForNewFrame(lastServedTimestamp: Long): Boolean {
+    var counter = 0
+    while (lastModified <= lastServedTimestamp) {
+      Thread.sleep(500)
+      if (++counter >= 50) return false
+      // Note: We should also exit if the connection is gone, but there is no good way to figure this out except for
+      // trying to write to the stream.
+    }
+    return true
+  }
+
+  private fun serveMotionJpegFrame(outputStream: OutputStream): Long {
+    // Make copy so that the response can take as long as it wants without blocking anything.
+    val copyForRequest: ByteArray
+    var servedTimestamp = 0L
+    synchronized(bytesLock) {
+      copyForRequest = currentImageBytes.copyOf()
+      servedTimestamp = lastModified
+    }
     outputStream.write("--ipcamera\r\n".toByteArray())
     outputStream.write("Content-Type: image/jpeg\r\n".toByteArray())
-    outputStream.write("Content-Length: ${jpegData.size}\r\n\r\n".toByteArray())
-    outputStream.write(jpegData)
-    log.atFine().log("Wrote mJpeg frame")
+    outputStream.write("Content-Length: ${copyForRequest.size}\r\n\r\n".toByteArray())
+    outputStream.write(copyForRequest)
+    return servedTimestamp
   }
 
   /** Serves the given data and content type to the given response.  */

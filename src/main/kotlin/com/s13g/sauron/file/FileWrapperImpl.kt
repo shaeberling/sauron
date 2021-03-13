@@ -23,7 +23,5 @@ class FileWrapperImpl(path: Path) : FileWrapper {
 
   override fun equals(other: Any?) = other is FileWrapperImpl && path == other.path
 
-  override fun hashCode(): Int {
-    return path.hashCode()
-  }
+  override fun hashCode() = path.hashCode()
 }

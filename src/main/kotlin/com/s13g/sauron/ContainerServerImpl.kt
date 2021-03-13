@@ -21,18 +21,17 @@ val defaultContainerServerCreator: ContainerServerCreator
 class ContainerServerImpl(private val port: Int, private val numThreads: Int) : ContainerServer {
   private val log = FluentLogger.forEnclosingClass()
 
-  override fun startServing(container: Container): Boolean {
+  override fun startServing(container: Container) =
     try {
       val processor = ContainerSocketProcessor(container, numThreads)
       val connection: Connection =
         SocketConnection(processor)
       val address: SocketAddress = InetSocketAddress(port)
       connection.connect(address)
-      log.atInfo().log("Listening at %s ", address.toString())
+      log.atInfo().log("Listening at $address")
+      true
     } catch (e: IOException) {
       log.atSevere().withCause(e).log("Cannot start webserver")
-      return false;
+      false
     }
-    return true;
-  }
 }

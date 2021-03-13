@@ -5,7 +5,6 @@ import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.BasicFileAttributes
-import javax.annotation.ParametersAreNonnullByDefault
 
 /** Default implementation for file functionality. */
 class FileWrapperImpl(path: Path) : FileWrapper {
@@ -22,7 +21,7 @@ class FileWrapperImpl(path: Path) : FileWrapper {
 
   override fun toString() = path.toString()
 
-  override fun equals(obj: Any?) = obj is FileWrapperImpl && path == obj.path
+  override fun equals(other: Any?) = other is FileWrapperImpl && path == other.path
 
   override fun hashCode(): Int {
     return path.hashCode()

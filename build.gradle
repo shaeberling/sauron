@@ -1,7 +1,7 @@
 plugins {
     id 'java'
-    id 'org.jetbrains.kotlin.jvm' version '1.4.31'
-    id "com.github.johnrengelman.shadow" version "5.2.0"
+    id 'org.jetbrains.kotlin.jvm' version '1.9.10'
+    id "com.github.johnrengelman.shadow" version "8.1.1"
 }
 
 group 'com.s13g.sauron'
@@ -23,10 +23,10 @@ dependencies {
 }
 
 compileKotlin {
-    targetCompatibility = "1.8"
+    targetCompatibility = "17"
 }
 compileTestKotlin {
-    targetCompatibility = "1.8"
+    targetCompatibility = "17"
 }
 
 shadowJar {
@@ -34,7 +34,7 @@ shadowJar {
 }
 
 task sauronDaemon(type: Jar, dependsOn: shadowJar) {
-    baseName = 'sauron'
+    archiveBaseName = 'sauron'
     manifest {
         attributes('Main-Class': 'com.s13g.sauron.SauronMainKt',
                 'Implementation-Title': 'Winston Sauron Daemon')

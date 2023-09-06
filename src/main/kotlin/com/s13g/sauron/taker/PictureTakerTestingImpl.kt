@@ -21,7 +21,7 @@ fun createTestPictureTakerFrom(directory: File): PictureTaker {
     throw RuntimeException("Directory does not exist: " + directory.absolutePath)
   }
   val jpegFiles = directory.listFiles { _: File?, name: String ->
-    name.toLowerCase().endsWith(".jpg")
+    name.lowercase().endsWith(".jpg")
   }
   if (jpegFiles == null || jpegFiles.isEmpty()) {
     throw RuntimeException("No JPEG files in directory " + directory.absolutePath)

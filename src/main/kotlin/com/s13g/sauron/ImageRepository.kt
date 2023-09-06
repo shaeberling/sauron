@@ -87,7 +87,7 @@ class ImageRepository @VisibleForTesting internal constructor(
     // Build list of existing image repo files.
     try {
       mRootDirectory.walkFileTree { file ->
-        if (file.toString().toLowerCase().endsWith(".jpg")) {
+        if (file.toString().lowercase().endsWith(".jpg")) {
           mImageFiles.add(ImageRepoFile(file))
           log.atInfo().log("INIT: Adding existing file: %s", file)
         }

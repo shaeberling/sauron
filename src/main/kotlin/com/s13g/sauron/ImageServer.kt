@@ -135,7 +135,7 @@ class ImageServer {
   private fun serveMotionJpegFrame(outputStream: OutputStream): Long {
     // Make copy so that the response can take as long as it wants without blocking anything.
     val copyForRequest: ByteArray
-    var servedTimestamp = 0L
+    var servedTimestamp : Long
     synchronized(bytesLock) {
       copyForRequest = currentImageBytes.copyOf()
       servedTimestamp = lastModified

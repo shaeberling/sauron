@@ -5,7 +5,7 @@ plugins {
 }
 
 group 'com.s13g.sauron'
-version '0.2'
+version '0.2.1'
 
 repositories {
     mavenCentral()

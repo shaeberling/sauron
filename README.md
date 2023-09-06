@@ -67,7 +67,7 @@ Note: This file will launch sauron inside a screen session, which is nice as it 
 Now activate the service:
 ```
 sudo systemctl daemon-reload
-sudo systemctl enable sample.service
+sudo systemctl enable sauron.service
 ```
 
 Once you restart the system, Sauron should be running. To run it right away, run:
